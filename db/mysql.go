@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	instance *MySQLClient
-	once     sync.Once
+	mysql *MySQLClient
+	once  sync.Once
 )
 
 type MySQLClient struct {
@@ -38,23 +38,23 @@ func Init(cfg Config) (*MySQLClient, error) {
 		db.SetMaxIdleConns(cfg.MaxIdleConns)
 		db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 
-		instance = &MySQLClient{
+		mysql = &MySQLClient{
 			db:      db,
 			timeout: cfg.Timeout,
 			logSQL:  cfg.LogSQL,
 		}
 		logger.Info("[MySQL] Connect to %s:%d/%s", cfg.Host, cfg.Port, cfg.DBName)
 	})
-	return instance, err
+	return mysql, err
 }
 
 // 获取单例
 func GetInstance() *MySQLClient {
-	if instance == nil {
+	if mysql == nil {
 		logger.Error("[MySQL]  Instance not initialized, call Init() first.")
 		return nil
 	}
-	return instance
+	return mysql
 }
 
 // ===================================================
@@ -164,4 +164,15 @@ func (c *MySQLClient) logQuery(tag, query string, duration time.Duration, err er
 	} else {
 		logger.Info("[MySQL]  %s | %s | cost=%v", tag, query, duration)
 	}
+}
+func (c *MySQLClient) Close() error {
+	if c.db != nil {
+		err := c.db.Close()
+		if err != nil {
+			logger.Error("[MySQL]  Close error: %v", err)
+			return err
+		}
+		logger.Info("[MySQL]  Connection closed.")
+	}
+	return nil
 }
