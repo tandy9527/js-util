@@ -314,3 +314,19 @@ func (c *RedisClient) LPush(key string, values ...any) (int64, error) {
 	}
 	return result.(int64), nil
 }
+
+// RPop 从 Redis 队列右侧弹出一个元素
+func (c *RedisClient) RPop(key string, timeout ...time.Duration) (string, error) {
+	res, err := c.do(func(ctx context.Context) (any, error) {
+		return c.rdb.RPop(ctx, key).Result()
+	}, timeout...)
+	if err != nil {
+		return "", err
+	}
+
+	// 类型断言为 string
+	if str, ok := res.(string); ok {
+		return str, nil
+	}
+	return "", nil
+}
