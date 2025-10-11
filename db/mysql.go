@@ -34,8 +34,9 @@ func Init(cfg Config) (*MySQLClient, error) {
 			err = e
 			return
 		}
-		db.SetMaxOpenConns(cfg.MaxOpen)
-		db.SetMaxIdleConns(cfg.MaxIdle)
+		db.SetMaxOpenConns(cfg.MaxOpenConns)
+		db.SetMaxIdleConns(cfg.MaxIdleConns)
+		db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 
 		instance = &MySQLClient{
 			db:      db,
@@ -51,6 +52,7 @@ func Init(cfg Config) (*MySQLClient, error) {
 func GetInstance() *MySQLClient {
 	if instance == nil {
 		logger.Error("[MySQL]  Instance not initialized, call Init() first.")
+		return nil
 	}
 	return instance
 }
