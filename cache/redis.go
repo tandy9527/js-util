@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"js-util/logger"
+	"github.com/tandy9527/js-util/logger"
 
 	"github.com/redis/go-redis/v9"
 )
