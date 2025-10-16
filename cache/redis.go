@@ -330,3 +330,81 @@ func (c *RedisClient) RPop(key string, timeout ...time.Duration) (string, error)
 	}
 	return "", nil
 }
+
+// ----------------------------zset--------------------------------
+// 添加或更新成员分数
+func (c *RedisClient) ZAdd(key string, members ...redis.Z) (int64, error) {
+	res, err := c.do(func(ctx context.Context) (any, error) {
+		return c.rdb.ZAdd(ctx, key, members...).Result()
+	})
+	if err != nil {
+		return 0, err
+	}
+	return res.(int64), nil
+}
+
+// 增加分数（支持正负值）
+func (c *RedisClient) ZIncrBy(key string, increment float64, member string) (float64, error) {
+	res, err := c.do(func(ctx context.Context) (any, error) {
+		return c.rdb.ZIncrBy(ctx, key, increment, member).Result()
+	})
+	if err != nil {
+		return 0, err
+	}
+	return res.(float64), nil
+}
+
+// 获取成员分数
+func (c *RedisClient) ZScore(key, member string) (float64, error) {
+	res, err := c.do(func(ctx context.Context) (any, error) {
+		return c.rdb.ZScore(ctx, key, member).Result()
+	})
+	if err != nil {
+		return 0, err
+	}
+	return res.(float64), nil
+}
+
+// 按分数从高到低取范围
+func (c *RedisClient) ZRevRangeWithScores(key string, start, stop int64) ([]redis.Z, error) {
+	res, err := c.do(func(ctx context.Context) (any, error) {
+		return c.rdb.ZRevRangeWithScores(ctx, key, start, stop).Result()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.([]redis.Z), nil
+}
+
+// 删除成员
+func (c *RedisClient) ZRem(key string, members ...any) (int64, error) {
+	res, err := c.do(func(ctx context.Context) (any, error) {
+		return c.rdb.ZRem(ctx, key, members...).Result()
+	})
+	if err != nil {
+		return 0, err
+	}
+	return res.(int64), nil
+}
+
+// 获取总成员数量
+func (c *RedisClient) ZCard(key string) (int64, error) {
+	res, err := c.do(func(ctx context.Context) (any, error) {
+		return c.rdb.ZCard(ctx, key).Result()
+	})
+	if err != nil {
+		return 0, err
+	}
+	return res.(int64), nil
+}
+
+// 删除分数区间内的成员
+func (c *RedisClient) ZRemRangeByScore(key, min, max string) (int64, error) {
+	res, err := c.do(func(ctx context.Context) (any, error) {
+		return c.rdb.ZRemRangeByScore(ctx, key, min, max).Result()
+	})
+	if err != nil {
+		return 0, err
+	}
+	return res.(int64), nil
+}
