@@ -1,9 +1,7 @@
 package cache
 
 import (
-	"os"
-
-	"gopkg.in/yaml.v3"
+	"github.com/tandy9527/js-util/utils"
 )
 
 type RedisConf struct {
@@ -18,14 +16,7 @@ type RedisMap struct {
 	Redis map[string]RedisConf `yaml:"redis"`
 }
 
-func LoadRedisConf(path string) (*RedisMap, error) {
-	file, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var cfg RedisMap
-	if err := yaml.Unmarshal(file, &cfg); err != nil {
-		return nil, err
-	}
-	return &cfg, nil
+func LoadRedisConf(path string) *RedisMap {
+
+	return utils.Loadyaml[RedisMap](path)
 }

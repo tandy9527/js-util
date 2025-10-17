@@ -22,7 +22,7 @@ var (
 
 // LoadRedis 初始化多个 Redis 客户端
 func LoadRedis(path string) {
-	cfg, _ := LoadRedisConf(path)
+	cfg := LoadRedisConf(path)
 	once.Do(func() {
 		// 配置的多个DB
 		for name, c := range cfg.Redis {
