@@ -1,8 +1,6 @@
 package cache
 
-import (
-	"github.com/tandy9527/js-util/utils"
-)
+import "github.com/tandy9527/js-util/tools"
 
 type RedisConf struct {
 	Addr         string `yaml:"addr"`
@@ -18,5 +16,5 @@ type RedisMap struct {
 
 func LoadRedisConf(path string) *RedisMap {
 
-	return utils.Loadyaml[RedisMap](path)
+	return tools.Loadyaml[RedisMap](path)
 }
