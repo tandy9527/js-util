@@ -29,7 +29,11 @@ func LoadMysql(path string) {
 		sqlDB, _ := DB.DB()
 		sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
 		sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
-		sqlDB.SetConnMaxLifetime(time.Hour)
+		duration, err := time.ParseDuration(cfg.ConnMaxLifetime)
+		if err != nil {
+			panic(fmt.Sprintf("msyql Connection failed: %v", err))
+		}
+		sqlDB.SetConnMaxLifetime(duration)
 		logger.Infof("LoadMysql successful")
 
 	})
