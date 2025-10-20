@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -38,7 +39,7 @@ func LoadRedis(path string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			if err := rdb.Ping(ctx).Err(); err != nil {
-				logger.Errorf("Redis[%s] Connection failed: %v", name, err)
+				panic(fmt.Sprintf("Redis[%s] Connection failed: %v", name, err))
 			}
 
 			redisMap[name] = &RedisClient{

@@ -1,0 +1,9 @@
+  Host: "62.60.232.70"
+  Port: 3306
+  User: "js"
+  Password: "Abcd123456!"
+  DBName: "slot"
+  Charset: "utf8mb4"
+  MaxOpenConns: 50 
+  MaxIdleConns: 10 
+  ConnMaxLifetime: "1h" 

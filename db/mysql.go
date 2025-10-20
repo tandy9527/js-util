@@ -1,178 +1,66 @@
 package db
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/tandy9527/js-util/logger"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 var (
-	mysql *MySQLClient
-	once  sync.Once
+	DB   *gorm.DB
+	once sync.Once // 保证只初始化一次
 )
 
-type MySQLClient struct {
-	db      *sql.DB
-	timeout time.Duration
-	logSQL  bool
-}
-
-// 初始化单例
-func Init(cfg Config) (*MySQLClient, error) {
-	var err error
+func LoadMysql(path string) {
+	cfg := LoadMySQLConf(path)
 	once.Do(func() {
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&loc=Local",
-			cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName)
-
-		db, e := sql.Open("mysql", dsn)
-		if e != nil {
-			err = e
-			return
-		}
-		db.SetMaxOpenConns(cfg.MaxOpenConns)
-		db.SetMaxIdleConns(cfg.MaxIdleConns)
-		db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
-
-		mysql = &MySQLClient{
-			db:      db,
-			timeout: cfg.Timeout,
-			logSQL:  cfg.LogSQL,
-		}
-		logger.Info("[MySQL] Connect to %s:%d/%s", cfg.Host, cfg.Port, cfg.DBName)
-	})
-	return mysql, err
-}
-
-// 获取单例
-func GetInstance() *MySQLClient {
-	if mysql == nil {
-		logger.Error("[MySQL]  Instance not initialized, call Init() first.")
-		return nil
-	}
-	return mysql
-}
-
-// ===================================================
-// 模式 1：带 ctx
-// ===================================================
-
-func (c *MySQLClient) ExecCtx(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	start := time.Now()
-	res, err := c.db.ExecContext(ctx, query, args...)
-	c.logQuery("ExecCtx", query, time.Since(start), err)
-	return res, err
-}
-
-func (c *MySQLClient) QueryCtx(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
-	start := time.Now()
-	rows, err := c.db.QueryContext(ctx, query, args...)
-	c.logQuery("QueryCtx", query, time.Since(start), err)
-	return rows, err
-}
-
-func (c *MySQLClient) QueryRowCtx(ctx context.Context, query string, args ...any) *sql.Row {
-	start := time.Now()
-	row := c.db.QueryRowContext(ctx, query, args...)
-	c.logQuery("QueryRowCtx", query, time.Since(start), nil)
-	return row
-}
-
-// ===================================================
-// 模式 2：默认 ctx
-// ===================================================
-
-func (c *MySQLClient) defaultCtx() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), c.timeout)
-}
-
-func (c *MySQLClient) Exec(query string, args ...any) (sql.Result, error) {
-	ctx, cancel := c.defaultCtx()
-	defer cancel()
-	return c.ExecCtx(ctx, query, args...)
-}
-
-func (c *MySQLClient) Query(query string, args ...any) (*sql.Rows, error) {
-	ctx, cancel := c.defaultCtx()
-	defer cancel()
-	return c.QueryCtx(ctx, query, args...)
-}
-
-func (c *MySQLClient) QueryRow(query string, args ...any) *sql.Row {
-	ctx, cancel := c.defaultCtx()
-	defer cancel()
-	return c.QueryRowCtx(ctx, query, args...)
-}
-
-// ===================================================
-// 事务封装
-// ===================================================
-
-func (c *MySQLClient) Transaction(fn func(tx *sql.Tx) error) error {
-	ctx, cancel := c.defaultCtx()
-	defer cancel()
-
-	tx, err := c.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	if err := fn(tx); err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-	return tx.Commit()
-}
-
-// ===================================================
-// 存储过程调用
-// ===================================================
-
-// CallProcCtx：带 ctx 调用存储过程
-func (c *MySQLClient) CallProcCtx(ctx context.Context, procName string, args ...any) (*sql.Rows, error) {
-	placeholders := ""
-	if len(args) > 0 {
-		placeholders = "?" + strings.Repeat(",?", len(args)-1)
-	}
-	query := fmt.Sprintf("CALL %s(%s)", procName, placeholders)
-	start := time.Now()
-	rows, err := c.db.QueryContext(ctx, query, args...)
-	c.logQuery("CallProcCtx", query, time.Since(start), err)
-	return rows, err
-}
-
-// CallProc：使用默认 ctx 调用存储过程
-func (c *MySQLClient) CallProc(procName string, args ...any) (*sql.Rows, error) {
-	ctx, cancel := c.defaultCtx()
-	defer cancel()
-	return c.CallProcCtx(ctx, procName, args...)
-}
-
-// ===================================================
-// 内部日志
-// ===================================================
-
-func (c *MySQLClient) logQuery(tag, query string, duration time.Duration, err error) {
-	if !c.logSQL {
-		return
-	}
-	if err != nil {
-		logger.Error("[MySQL]  %s | %s | err=%v | cost=%v", tag, query, err, duration)
-	} else {
-		logger.Info("[MySQL]  %s | %s | cost=%v", tag, query, duration)
-	}
-}
-func (c *MySQLClient) Close() error {
-	if c.db != nil {
-		err := c.db.Close()
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local",
+			cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.Charset)
+		logger.Infof("LoadMysql DSN: %s", dsn)
+		var err error
+		DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 		if err != nil {
-			logger.Error("[MySQL]  Close error: %v", err)
-			return err
+			panic(fmt.Sprintf("msyql Connection failed: %v", err))
 		}
-		logger.Info("[MySQL]  Connection closed.")
+		sqlDB, _ := DB.DB()
+		sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
+		sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+		sqlDB.SetConnMaxLifetime(time.Hour)
+		logger.Infof("LoadMysql successful")
+
+	})
+}
+
+// CloseMySQL 关闭连接
+func CloseMySQL() {
+	if DB != nil {
+		sqlDB, _ := DB.DB()
+		_ = sqlDB.Close()
+		logger.Infof("close MySQL ")
 	}
-	return nil
+}
+
+// CallProcedure 执行存储过程并将结果映射到 dest（结构体或切片）
+// procName: 存储过程名
+// dest: 指针类型，结构体或切片，用于接收结果集
+// args: 输入参数
+func CallProcedure(dest any, procName string, args ...any) error {
+	// 构造 CALL 语句，例如 CALL procName(?, ?, ?)
+	callStmt := fmt.Sprintf("CALL %s(%s)", procName, placeholders(len(args)))
+	return DB.Raw(callStmt, args...).Scan(dest).Error
+}
+
+func placeholders(n int) string {
+	if n == 0 {
+		return ""
+	}
+	s := "?"
+	for i := 1; i < n; i++ {
+		s += ",?"
+	}
+	return s
 }
