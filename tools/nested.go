@@ -9,8 +9,7 @@ import (
 // m: map[string]any
 // path: []string 路径
 // T: any 返回的值类型
-
-// GetNested 根据路径获取配置，并自动做类型转换
+// 支持任意嵌套结构
 func GetNested[T any](m map[string]any, path ...string) T {
 	if len(path) == 0 {
 		panic("[GetNested] empty path: at least one key is required")
@@ -28,8 +27,19 @@ func GetNested[T any](m map[string]any, path ...string) T {
 
 		val, exists := currMap[p]
 		if !exists {
+			// 尝试数字 key 转 string
+			for k, v := range currMap {
+				if fmt.Sprintf("%v", k) == p {
+					val = v
+					exists = true
+					break
+				}
+			}
+		}
+
+		if !exists {
 			panic(fmt.Sprintf(
-				"[GetNested] config key not found: '%v'\nFull path: %v\nMap keys at this level: %v",
+				"[GetNested] config key not found: '%v'\nFull path: %v\nMap keys: %v",
 				p, path[:i+1], reflect.ValueOf(currMap).MapKeys(),
 			))
 		}
@@ -37,75 +47,57 @@ func GetNested[T any](m map[string]any, path ...string) T {
 		curr = val
 	}
 
-	// 自动转换类型
-	curr = autoConvert(curr)
-
-	// 类型检查
-	t, ok := curr.(T)
-	if !ok {
-		panic(fmt.Sprintf(
-			"[GetNested] config type error:\n  Expected: %T\n  Got: %T (value=%v)\n  Path: %v",
-			*new(T), curr, curr, path,
-		))
-	}
-	return t
+	// 根据 T 类型递归转换
+	tType := reflect.TypeOf((*T)(nil)).Elem()
+	result := convertToType(curr, tType)
+	return result.(T)
 }
 
-// autoConvert 自动转换 YAML 解析后的类型
-func autoConvert(v any) any {
-	switch val := v.(type) {
-
-	case float64: // YAML 默认数字是 float64
-		return int(val)
-
-	case []any:
-		if len(val) == 0 {
-			return []int{}
+// convertToType 通用递归转换函数
+func convertToType(v any, t reflect.Type) any {
+	switch t.Kind() {
+	case reflect.Int:
+		return toInt(v)
+	case reflect.Float64:
+		return toFloat64(v)
+	case reflect.String:
+		return fmt.Sprintf("%v", v)
+	case reflect.Bool:
+		b, ok := v.(bool)
+		if !ok {
+			panic(fmt.Sprintf("[convertToType] expected bool but got %T", v))
 		}
-		// 判断是二维数组还是一维数组
-		switch val[0].(type) {
-		case []any: // [][]int
-			result := make([][]int, 0, len(val))
-			for _, item := range val {
-				subArr, ok := item.([]any)
-				if !ok {
-					panic(fmt.Sprintf("[autoConvert] expected []any in [][]int but got %T", item))
-				}
-				row := make([]int, 0, len(subArr))
-				for _, n := range subArr {
-					row = append(row, toInt(n))
-				}
-				result = append(result, row)
-			}
-			return result
-		default: // []int
-			result := make([]int, 0, len(val))
-			for _, n := range val {
-				result = append(result, toInt(n))
-			}
-			return result
-		}
+		return b
 
-	case map[interface{}]interface{}: // key 可能是数字
-		strMap := make(map[string]any)
-		for k, v2 := range val {
-			strKey := fmt.Sprintf("%v", k)
-			strMap[strKey] = autoConvert(v2)
+	case reflect.Slice:
+		arr, ok := v.([]any)
+		if !ok {
+			panic(fmt.Sprintf("[convertToType] expected []any but got %T", v))
 		}
-		return strMap
+		res := reflect.MakeSlice(t, len(arr), len(arr))
+		for i, elem := range arr {
+			res.Index(i).Set(reflect.ValueOf(convertToType(elem, t.Elem())))
+		}
+		return res.Interface()
 
-	case map[string]any:
-		for k, v2 := range val {
-			val[k] = autoConvert(v2)
+	case reflect.Map:
+		m, ok := v.(map[string]any)
+		if !ok {
+			panic(fmt.Sprintf("[convertToType] expected map[string]any but got %T", v))
 		}
-		return val
+		res := reflect.MakeMap(t)
+		for k, val := range m {
+			keyVal := reflect.ValueOf(k)
+			valVal := reflect.ValueOf(convertToType(val, t.Elem()))
+			res.SetMapIndex(keyVal, valVal)
+		}
+		return res.Interface()
 
 	default:
-		return val
+		panic(fmt.Sprintf("[convertToType] unsupported kind: %v", t.Kind()))
 	}
 }
 
-// toInt 将任何数字类型转换为 int
 func toInt(v any) int {
 	switch n := v.(type) {
 	case int:
@@ -115,6 +107,19 @@ func toInt(v any) int {
 	case float64:
 		return int(n)
 	default:
-		panic(fmt.Sprintf("[toInt] cannot convert type %T to int (value=%v)", v, v))
+		panic(fmt.Sprintf("[toInt] cannot convert %T to int", v))
+	}
+}
+
+func toFloat64(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	default:
+		panic(fmt.Sprintf("[toFloat64] cannot convert %T to float64", v))
 	}
 }
