@@ -12,6 +12,12 @@ func RandChoice[T any](sequence []T) T {
 	return sequence[rand.Intn(len(sequence))]
 }
 
+// RandInt 随机返回一个整数
+// 0~(max-1)
+func RandInt(max int) int {
+	return rand.Intn(max)
+}
+
 // RandChoiceByWeight  根据权重随机返回一个元素
 func RandChoiceByWeight[T any](sequence []T, weights []int) T {
 	n := len(sequence)
