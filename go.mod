@@ -3,6 +3,7 @@ module github.com/tandy9527/js-util
 go 1.23.0
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/redis/go-redis/v9 v9.14.0
 	github.com/segmentio/kafka-go v0.4.49
 	go.uber.org/zap v1.27.0
