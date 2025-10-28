@@ -19,11 +19,11 @@ type Claims struct {
 }
 
 // 生成 JWT
-// expire 过期时间
+// expire 过期时间,单位:s
 // uid 用户ID
 // secret 秘钥
 // ip 请求ip,预留
-func GenerateToken(uid int64, secret, ip string, expire time.Time) (string, error) {
+func GenerateToken(uid int64, secret, ip string, expire int) (string, error) {
 
 	if str_tools.IsEmpty(secret) {
 		return "", fmt.Errorf("secret is empty")
@@ -36,7 +36,7 @@ func GenerateToken(uid int64, secret, ip string, expire time.Time) (string, erro
 		IP:    ip,                          //预留
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(expire),
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(expire) * time.Second)),
 		},
 	}
 
