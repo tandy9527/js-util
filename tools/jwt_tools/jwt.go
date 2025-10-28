@@ -9,12 +9,10 @@ import (
 	"github.com/tandy9527/js-util/tools/str_tools"
 )
 
-var jwtSecret = []byte("eyJ1aWQiOjEwMDAsImlwIjoiMS4yLjMuNCIsIm5vbmNlIjoiYTJiYzEyMyIsImlhdCI6MTczODUyNzQ0NywiZXhwIjoxNzM4NTI3NjI3LCJpc3MiOiJTbG90TG9iYnkifQ")
-
 type Claims struct {
-	UID   int64  `json:"uid"`
-	Nonce string `json:"nonce,omitempty"`
-	IP    string `json:"ip,omitempty"`
+	U  int64  `json:"u"`
+	N  string `json:"n,omitempty"`
+	IP string `json:"ip,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -31,9 +29,9 @@ func GenerateToken(uid int64, secret, ip string, expire int) (string, error) {
 	now := time.Now()
 
 	claims := Claims{
-		UID:   uid,
-		Nonce: str_tools.RandLetterStr(32), // 随机字符串，防止重复
-		IP:    ip,                          //预留
+		U:  uid,
+		N:  str_tools.RandLetterStr(8), // 随机字符串，防止重复
+		IP: ip,                         //预留
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(expire) * time.Second)),
@@ -46,18 +44,13 @@ func GenerateToken(uid int64, secret, ip string, expire int) (string, error) {
 		logger.Errorf("GenerateOneToken error: %v", err)
 		return "", err
 	}
-	return str_tools.Base64Encode(tokenStr), nil
+	return tokenStr, nil
 }
 
 // 解析 JWT
-func ParseToken(tokenStr, ip string) (int64, error) {
-	decoded := str_tools.Base64Decode(tokenStr)
-	if str_tools.IsEmpty(decoded) {
-		return -1, fmt.Errorf("jwt ParseToken invalid token")
-	}
-
-	token, err := jwt.ParseWithClaims(decoded, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
+func ParseToken(tokenStr, secret, ip string) (int64, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (any, error) {
+		return []byte(secret), nil
 	})
 	if err != nil {
 		return -2, err
@@ -69,7 +62,7 @@ func ParseToken(tokenStr, ip string) (int64, error) {
 			return -3, fmt.Errorf("jwt ParseToken ip mismatch")
 		}
 		// 检查是否过期（jwt 库会自动检查）
-		return claims.UID, nil
+		return claims.U, nil
 	}
 
 	return -4, fmt.Errorf("jwt ParseToken  token Expired")
