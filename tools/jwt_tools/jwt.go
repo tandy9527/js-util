@@ -41,7 +41,7 @@ func GenerateToken(uid int64, secret, ip string, expire int) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenStr, err := token.SignedString(secret)
+	tokenStr, err := token.SignedString([]byte(secret))
 	if err != nil {
 		logger.Errorf("GenerateOneToken error: %v", err)
 		return "", err
