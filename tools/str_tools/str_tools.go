@@ -2,13 +2,21 @@ package str_tools
 
 import (
 	"encoding/base64"
+	"fmt"
 	"math/rand"
 	"slices"
 
 	"github.com/tandy9527/js-util/logger"
 )
 
+const EMPTY = ""
+
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+// StrSplingInt 字符串拼接int64
+func StrSplingInt(s string, n int64) string {
+	return s + fmt.Sprintf("%d", n)
+}
 
 func IsEmpty(s string) bool {
 	return s == ""
