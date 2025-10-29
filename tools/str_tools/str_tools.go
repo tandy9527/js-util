@@ -2,6 +2,7 @@ package str_tools
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"slices"
@@ -60,4 +61,17 @@ func Base64Decode(str string) string {
 		return ""
 	}
 	return string(decoded)
+}
+
+// JSON 转map
+func JsonToMao(jsonstr string) map[string]any {
+	if IsEmpty(jsonstr) {
+		panic("json string is empty")
+	}
+	data := make(map[string]any)
+	err := json.Unmarshal([]byte(jsonstr), &data)
+	if err != nil {
+		panic(fmt.Sprintf("json to map error: %v", err.Error()))
+	}
+	return data
 }
