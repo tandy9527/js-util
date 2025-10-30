@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net"
+	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/tandy9527/js-util/logger"
 )
@@ -74,4 +77,25 @@ func JsonToMao(jsonstr string) map[string]any {
 		panic(fmt.Sprintf("json to map error: %v", err.Error()))
 	}
 	return data
+}
+
+// GetRealIP 获取真实IP
+func GetRealIP(r *http.Request) string {
+	// 优先从 X-Forwarded-For 获取
+	forwarded := r.Header.Get("X-Forwarded-For")
+	if forwarded != "" {
+		// 可能有多个IP，用逗号分隔，第一个是真实IP
+		ips := strings.Split(forwarded, ",")
+		return strings.TrimSpace(ips[0])
+	}
+
+	// 尝试从 X-Real-IP 获取
+	realIP := r.Header.Get("X-Real-IP")
+	if realIP != "" {
+		return realIP
+	}
+
+	// 默认取 RemoteAddr
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	return ip
 }
