@@ -79,23 +79,55 @@ func JsonToMao(jsonstr string) map[string]any {
 	return data
 }
 
-// GetRealIP 获取真实IP
+// GetRealIP 获取真实客户端 IP，支持多层代理
 func GetRealIP(r *http.Request) string {
-	// 优先从 X-Forwarded-For 获取
-	forwarded := r.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		// 可能有多个IP，用逗号分隔，第一个是真实IP
-		ips := strings.Split(forwarded, ",")
-		return strings.TrimSpace(ips[0])
+	// 先从 X-Forwarded-For 获取
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		// 可能有多个 IP，用逗号分隔
+		ips := strings.Split(xff, ",")
+		for _, ip := range ips {
+			ip = strings.TrimSpace(ip)
+			if ip != "" && !isPrivateIP(ip) {
+				return ip // 返回第一个非内网 IP
+			}
+		}
 	}
 
-	// 尝试从 X-Real-IP 获取
-	realIP := r.Header.Get("X-Real-IP")
-	if realIP != "" {
-		return realIP
+	// 再尝试 X-Real-IP
+	xrip := r.Header.Get("X-Real-IP")
+	if xrip != "" && !isPrivateIP(xrip) {
+		return xrip
 	}
 
-	// 默认取 RemoteAddr
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	// 最后取 RemoteAddr
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
 	return ip
+}
+
+// isPrivateIP 判断是否是私网 IP
+func isPrivateIP(ipStr string) bool {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+
+	privateBlocks := []string{
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"127.0.0.0/8",
+		"::1/128",
+	}
+
+	for _, block := range privateBlocks {
+		_, cidr, _ := net.ParseCIDR(block)
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
